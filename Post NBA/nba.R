@@ -2,18 +2,23 @@ library(readxl)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(lubridate)
+library(plyr)
 
-nba <- read_excel("NBA.xlsx")
+# @İbrahim Onur Şerbetçi 2019
+#First cleaning, second q1,third sidcar tries, fourth textmining, fifth q3, sixth some tries, and last ml
+
+nba <- read_excel("Desktop/Data Blog/Blogpost 3 NBA/NBA.xlsx")
 View(nba)
 
 #Let's review data generally
 summary(nba)
 head(nba)
 tail(nba)
-names(nba)
+names(nba) 
 summary(nba$LikeCount)
 
-#Start Clean
+
 #####################################
 #First to do that change unpractical columns to categorical variable
 nba$PostType.f = as.factor(nba$PostType)
@@ -45,14 +50,17 @@ nba_by_postcode$ViewCount_null=if_else(nba_by_postcode$ViewCount!=0,
 
 #First Question
 
-#first question
+#first question 
 ##################################### 
 #How often they send a post? Is there any schedule or are they send randomly? Is there any time they stop posting? 
-PostDateDıff = difftime((head(nba_by_postcode$PostDate, -1)), (tail(nba_by_postcode$PostDate, -1)), units = "mins")
+PostDateDıff = difftime((head(nba_by_postcode$PostDate, -1)), (tail(nba_by_postcode$PostDate, -1)), units = "hour")
+head(nba_by_postcode$PostDate, -1)[1]
+tail(nba_by_postcode$PostDate, -1)[1]
+  
 PostDateDıff[31963]= NA
 tail(PostDateDıff,50)
 
-PostDateDıff=ifelse(PostDateDıff<0,NA,PostDateDıff)
+PostDateDıff=ifelse(PostDateDıff<=0,NA,PostDateDıff)
 mean(PostDateDıff,na.rm = TRUE)
 median(PostDateDıff,na.rm = TRUE)
 sd(PostDateDıff,na.rm = TRUE)
@@ -63,39 +71,52 @@ dfDate=na.omit(dfDate)
 ggplot(data=dfDate,aes(x=nba_by_postcode.PostDate,y=PostDateDıff))+ geom_jitter(alpha = 1/15) +xlab("Post Date") + 
   ylab("Time Difference (hours)") +
   ggtitle("Time Difference Between Two Posts") +
-  scale_y_continuous(breaks = seq(0,17500,2500))
+  scale_y_continuous(breaks = seq(0,300,15),limits = c(0,300))
 
-
-
+boxplot(dfDate$PostDateDıff,coef = 2)
 id1 <- boxplot.stats(dfDate$PostDateDıff,coef = 2)	
 id1$stats	
-lowerwhisker =id1$stats[1]	
+lowerwhisker =id1$stats[1]
 upperwhisker =id1$stats[5]
 
-dfDate_out<-dfDate[dfDate>lowerwhisker & dfDate<upperwhisker]
+dfDate_out<-dfDate$PostDateDıff[dfDate$PostDateDıff>lowerwhisker & dfDate$PostDateDıff<upperwhisker]
 dfDate_out=as.data.frame(dfDate_out)
 colnames(dfDate_out)[1] = "PostDateDıff"
-dfDate_out$PostDateDıff = as.numeric(dfDate_out$PostDateDıff)
 
 dfDate_out$PostDate<-dfDate$nba_by_postcode.PostDate[dfDate$PostDateDıff>lowerwhisker & dfDate$PostDateDıff<upperwhisker]
 
 ggplot(data=dfDate_out,aes(x=PostDate,y=PostDateDıff))+ geom_jitter(alpha = 1/15) +xlab("Post Date") + 
-  ylab("Time Difference (min)") +
+  ylab("Time Difference (hour)") +
   ggtitle("Time Difference Between Two Posts") 
 
 mean(dfDate_out$PostDateDıff)
+mean(dfDate_out$PostDateDıff)*60
 median(dfDate_out$PostDateDıff)
+median(dfDate_out$PostDateDıff)*60
 sd(dfDate_out$PostDateDıff)
-
 
 dfDate$nba_by_postcode.PostDate[dfDate$PostDateDıff>15000]
 
+nba_by_postcode=mutate(nba_by_postcode, date = ymd_hms(PostDate), PostHour = hour(date))
+posthour.df=subset(nba_by_postcode,select = "PostHour")
 
+posthour.df$PostHour = as.factor(posthour.df$PostHour)
+
+hourfreq=count(posthour.df,'PostHour')
+
+#sort
+hourfreq=hourfreq[order(hourfreq$freq,decreasing = TRUE),]
+
+head(hourfreq)
+
+barplot(hourfreq$freq, las = 2, names.arg = hourfreq$PostHour,
+        col ="green", main ="Most frequent post hours(GMT+3)",
+        ylab = "Post hour frequencies")
 
 ##sidecar
 
-#sidecar tryings
-############# 
+#sidecar tryings Q1 
+#############
 
 
 summary(nba_by_postcode$PostDate)
@@ -125,7 +146,7 @@ ggplot(data=nba_by_postcode,aes(x=PostDate,l_v_percent,color=PostType.f)) +
 
 #textmining second question
 
-#textmining second question
+#textmining second question textmining
 ########################
 #Here, I'm going to try introduce into text mining :)
 library("tm")
@@ -136,6 +157,7 @@ library("RColorBrewer")
 text_caption = nba_by_postcode$PostCaption
 text_caption=na.omit(text_caption)
 text_tags = nba_by_postcode$Tags
+
 textMining=function(list) {
   
 
@@ -231,7 +253,7 @@ ggplot(nba_by_postcode, aes(PostType.f, round(LikeCount,-3)/1000)) + geom_boxplo
 
 
 
-#some extras
+#some extras 
 ########
 tag_freq = textMining(nba_by_postcode$Tags)
 head(tag_freq)
@@ -278,4 +300,38 @@ mention_freq_total = rbind(mention_freq_2012,
 #machinel 
 ##########
 
+#add new column as Post Hour
+nba_by_postcode=mutate(nba_by_postcode, date = ymd_hms(PostDate), PostHour = hour(date))
+nba_by_postcode=mutate(nba_by_postcode, date = ymd_hms(PostDate), PostYear = year(date))
 
+nba.like.hour = subset(nba_by_postcode,select = c("LikeCount","PostHour"))
+
+nba.like.hour$PostHour=as.factor(nba.like.hour$PostHour)
+
+cor(nba.like.hour)
+plot(nba.like.hour)
+
+training.like.hour <- nba.like.hour[sample(1:nrow(nba.like.hour), 30000, replace=FALSE),]  
+testing.like.hour <- nba.like.hour[!(row.names(nba.like.hour) %in% row.names(training.like.hour) ), ]
+
+model.like = glm(LikeCount~PostHour,data=training.like.hour)
+summary(model.like)
+
+pr=predict.glm(model.like,testing.like.hour,"response")
+mean(abs(pr- testing.like.hour$LikeCount))
+
+#More complicated model trials
+
+nba.like = subset(nba_by_postcode,select = c("LikeCount","PostType.f","Height-Width","PostHour","PostYear"))
+nba.like$`Height-Width`=as.factor(nba.like$`Height-Width`) 
+nba.like$PostHour = as.factor(nba.like$PostHour)
+nba.like$PostYear = as.factor(nba.like$PostYear)
+
+training.like <- nba.like[sample(1:nrow(nba.like), 30000, replace=FALSE),]  
+testing.like <- nba.like[!(row.names(nba.like) %in% row.names(training.like) ), ]
+
+model.like2 = glm(LikeCount~PostHour + PostType.f + PostYear,data=training.like)
+summary(model.like2)
+
+pr=predict.glm(model.like2,testing.like,"response")
+mean(abs(pr- testing.like$LikeCount))
