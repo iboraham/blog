@@ -8,7 +8,7 @@ library(plyr)
 # @İbrahim Onur Şerbetçi 2019
 #First cleaning, second q1,third sidcar tries, fourth textmining, fifth q3, sixth some tries, and last ml
 
-nba <- read_excel("Desktop/Data Blog/Blogpost 3 NBA/NBA.xlsx")
+nba <- read_excel("~/Desktop/Data Blog/Blogpost 3 NBA/NBA.xlsx")
 View(nba)
 
 #Let's review data generally
@@ -208,7 +208,7 @@ summary(mention_freq$freq)
 #Generate the Word cloud!!!
 set.seed(1234)
 wordcloud(words = mention_freq$word, freq = mention_freq$freq, min.freq = 1,
-          max.words=200, random.order=FALSE, rot.per=0.35, 
+          max.words=200, random.order=FALSE, rot.per=0.35, scale =c(3,0,3) , 
           colors=brewer.pal(8, "Dark2"))
 
 findAssocs(mention_freq$dtm, terms = "warriors", corlimit = 0.1)
